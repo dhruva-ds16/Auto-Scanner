@@ -6,16 +6,20 @@ from impacket import smb
 
 def scan_ports(host, start_port, end_port):
     open_ports = []
-    for port in range(start_port, end_port + 1):
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)  # Adjust the timeout value as needed
-            result = sock.connect_ex((host, port))
-            if result == 0:
-                open_ports.append(port)
-            sock.close()
-        except socket.error:
-            pass
+    nmap_args = ["nmap", "-p", f"{start_port}-{end_port}", "-sV", host]
+    try:
+        output = subprocess.check_output(nmap_args, stderr=subprocess.STDOUT)
+        output_str = output.decode()
+        lines = output_str.split("\n")
+        for line in lines:
+            if "/tcp" in line and "open" in line:
+                parts = line.split()
+                port = parts[0].split("/")[0]
+                service = parts[2]
+                version = parts[3]
+                open_ports.append((int(port), service, version))
+    except subprocess.CalledProcessError as e:
+        print("Error executing Nmap:", e.output)
     return open_ports
 
 def identify_services(open_ports):
